@@ -465,16 +465,19 @@
         (throw e)))))
 
 (defn copy-object
-  "Copy an existing S3 object to another key. Returns a map containing
-   the data returned from S3"
-  ([cred bucket src-key dest-key]
-     (copy-object cred bucket src-key bucket dest-key))
-  ([cred src-bucket src-key dest-bucket dest-key]
-     (copy-object cred src-bucket src-key dest-bucket dest-key nil))
-  ([cred src-bucket src-key dest-bucket dest-key metadata]
-     (let [req (CopyObjectRequest. src-bucket src-key dest-bucket dest-key)]
-       (.setNewObjectMetadata req (map->ObjectMetadata metadata))
-       (to-map (.copyObject (s3-client cred) req)))))
+  "Copy an existing S3 object to another key. `src` should be a map containing
+   :bucket, :key and optional :version-id. `dest` should be a map containing
+   :bucket, :key and optional :metadata. If :bucket is omitted from `dest`, the object
+   is copied to the new key in the same bucket as `src`. Returns a map containing
+   the data returned from S3."
+  [cred src dest]
+  (let [dest (merge src dest)
+        req  (if (:version-id src)
+               (CopyObjectRequest. (:bucket src) (:key src) (:version-id src) (:bucket dest) (:key dest))
+               (CopyObjectRequest. (:bucket src) (:key src) (:bucket dest) (:key dest)))]
+    (when (:metadata dest)
+      (.setNewObjectMetadata req (map->ObjectMetadata (:metadata dest))))
+    (to-map (.copyObject (s3-client cred) req))))
 
 (defn- map->ListVersionsRequest
   "Create a ListVersionsRequest instance from a map of values."
